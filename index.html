@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLUX — Living Color Lab shuke</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #fafafa;
+    color: #111;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid #e5e5e5;
+  }
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 40px;
+    padding: 40px 52px 60px;
+  }
+  /* ---------------- 左侧栏(独立设计:沿用右侧胶囊+流体语言) ---------------- */
+  .sidebar { padding-top: 8px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 10px; letter-spacing: 1.5px; font-weight: 600;
+    text-transform: uppercase; color: #333;
+    background: #fff; border-radius: 999px;
+    padding: 8px 16px;
+    box-shadow: 0 6px 16px -8px rgba(0,0,0,.18);
+  }
+  .eyebrow::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: conic-gradient(#ff4fa0, #ff8c40, #7c3fff, #2f6bff, #ff4fa0);
+    animation: spin 4s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .eyebrow-cn { font-size: 10px; color: #b5b5b5; margin-top: 10px; letter-spacing: 2px; padding-left: 4px; }
+  .logo {
+    margin-top: 30px;
+    font-size: 44px; line-height: 1;
+    letter-spacing: -1px;
+    font-weight: 800;
+    color: #111;
+    user-select: none;
+  }
+  .logo sup { font-size: 12px; font-weight: 600; letter-spacing: 0; vertical-align: super; color: #999; }
+  /* 流体渐变胶囊,呼应右侧卡片材质 */
+  .logo-swatch {
+    margin-top: 14px; height: 10px; width: 190px; border-radius: 999px;
+    background: linear-gradient(100deg, #fff 0%, #ffd9a8 25%, #ff5aa5 45%, #8a5cff 65%, #3fa4ff 85%, #fff 100%);
+    background-size: 220% 100%;
+    animation: flow 7s ease-in-out infinite alternate;
+    box-shadow: 0 8px 16px -8px rgba(140,80,255,.45);
+  }
+  @keyframes flow { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+  .tagline { margin-top: 30px; font-size: 16px; font-weight: 800; line-height: 1.6; letter-spacing: .5px; }
+  .tagline .cn { font-weight: 500; color: #666; }
+  .desc {
+    margin-top: 20px; font-size: 11px; color: #a8a8a8; line-height: 1.9;
+    border-left: 2px solid #e6e6e6; padding-left: 12px;
+  }
+  .filters { margin-top: 44px; display: flex; flex-direction: column; gap: 10px; width: 176px; }
+  .filter-btn {
+    display: flex; align-items: center; gap: 10px;
+    border: 0; cursor: pointer;
+    padding: 11px 16px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    color: #333; text-align: left;
+    background: #fff;
+    box-shadow: 0 8px 18px -10px rgba(0,0,0,.22);
+    transition: background .25s ease, color .25s ease, transform .2s ease, box-shadow .25s ease;
+  }
+  .filter-btn .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    flex: none;
+    background: var(--sw, #ddd);
+    transition: transform .25s;
+  }
+  .filter-btn .cn { font-size: 9px; color: #b5b5b5; font-weight: 400; margin-left: auto; }
+  .filter-btn:hover { transform: translateX(4px); box-shadow: 0 12px 22px -10px rgba(0,0,0,.3); }
+  .filter-btn.active { background: #111; color: #fff; }
+  .filter-btn.active .dot { transform: scale(1.25); }
+  .filter-btn.active .cn { color: #888; }
+  .counter {
+    margin-top: 18px; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #111;
+    display: inline-flex; align-items: center; gap: 8px; padding-left: 6px;
+  }
+  .counter::after { content: ""; width: 34px; height: 1px; background: #111; }
+  /* ---------------- 卡片区 ---------------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 44px 46px;
+    align-content: start;
+    padding-top: 8px;
+  }
+  .cell { display: flex; flex-direction: column; }
+  .cell.hidden { display: none; }
+  .cell-label {
+    align-self: center;
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    color: #222; margin-bottom: 14px; text-transform: uppercase;
+  }
+  .cell-label .cn { font-weight: 500; color: #555; margin-left: 4px; }
+  .card {
+    position: relative;
+    height: 108px;
+    border-radius: 60px 60px 60px 60px / 54px 54px 54px 54px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 18px 30px -14px rgba(0,0,0,.28), 0 4px 10px rgba(0,0,0,.05);
+    cursor: pointer;
+    transition: transform .35s cubic-bezier(.22,.9,.3,1.2), box-shadow .35s ease;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 26px 40px -16px rgba(0,0,0,.34), 0 6px 14px rgba(0,0,0,.06);
+  }
+  .card canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+  }
+  .card-content {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding-left: 44px;
+    pointer-events: none;
+  }
+  .card-title {
+    font-size: 22px; font-weight: 700; letter-spacing: 3px; color: #555;
+  }
+  .card-price { margin-top: 6px; font-size: 11px; color: #9a9a9a; font-family: "Courier New", monospace; }
+  .card-paid {
+    margin-top: 5px; font-size: 10px; font-weight: 800; letter-spacing: 2px;
+  }
+  .arrow-btn {
+    position: absolute; top: 12px; right: 14px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #1b1b1b; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; line-height: 1;
+    transition: transform .3s ease, background .3s ease;
+  }
+  .card:hover .arrow-btn { transform: translateX(2px) rotate(-45deg); background: #000; }
+  /* 单卡筛选时:卡片占据首行左列,与视频一致 */
+  .grid.single { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  /* ---------------- 页脚 ---------------- */
+  .footer {
+    border-top: 1px solid #e8e8e8;
+    padding: 22px 52px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; letter-spacing: 1.2px; font-weight: 600; color: #333;
+  }
+  .footer .links { display: flex; gap: 28px; }
+  .footer a { color: #333; text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+  @media (max-width: 1000px) {
+    .main { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="main">
+    <!-- 左侧栏 -->
+    <aside class="sidebar">
+      <div class="eyebrow">Living Color Lab</div>
+      <div class="eyebrow-cn">流动色彩实验室</div>
+      <h1 class="logo">FLUX<sup>®</sup></h1>
+      <div class="logo-swatch"></div>
+      <div class="tagline">
+        PIGMENT IN MOTION. <span class="cn">让颜料动起来。</span><br>
+        <span class="cn">封存在容器里的一场风。</span>
+      </div>
+      <p class="desc">每一枚胶囊都是一台微型气候。<br>噪声驱动,永不重复。</p>
+      <nav class="filters" id="filters">
+        <button class="filter-btn active" data-filter="all" style="--sw:conic-gradient(#ff4fa0,#ff8c40,#7c3fff,#2f6bff,#ff4fa0)"><span class="dot" style="background:conic-gradient(#ff4fa0,#ff8c40,#7c3fff,#2f6bff,#ff4fa0)"></span>ALL<span class="cn">全部</span></button>
+        <button class="filter-btn" data-filter="original" style="--sw:#ff4f9e"><span class="dot"></span>ORIGINAL<span class="cn">原始版本</span></button>
+        <button class="filter-btn" data-filter="aurora" style="--sw:#1fd58f"><span class="dot"></span>AURORA<span class="cn">极光</span></button>
+        <button class="filter-btn" data-filter="klein" style="--sw:#0f2fa8"><span class="dot"></span>KLEIN<span class="cn">克莱因</span></button>
+        <button class="filter-btn" data-filter="ultraviolet" style="--sw:#7a3dff"><span class="dot"></span>ULTRAVIOLET<span class="cn">超 Violet</span></button>
+        <button class="filter-btn" data-filter="chrome" style="--sw:#8c8c8c"><span class="dot"></span>CHROME<span class="cn">铬</span></button>
+        <button class="filter-btn" data-filter="sunset" style="--sw:#ff8c2a"><span class="dot"></span>SUNSET<span class="cn">落日</span></button>
+      </nav>
+      <div class="counter" id="counter">06 / 06</div>
+    </aside>
+    <!-- 右侧卡片区 -->
+    <section class="grid" id="grid"></section>
+  </div>
+  <footer class="footer">
+    <div>© FLUX LAB — NOISE. PIGMENT. MOTION.</div>
+    <div class="links"><a href="#">WECHAT</a><a href="#">X</a><a href="#">EMAIL</a></div>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+ * SPECTRA — 固定容器内的"活"颜色材质
+ * 每张胶囊卡片内嵌一个 WebGL 画布,片元着色器使用
+ * 域扭曲 FBM 噪声混合主题色,模拟缓慢呼吸流动的色彩云雾。
+ * ============================================================ */
+
+const CARDS = [
+  { id: 'original',    en: 'ORIGINAL',    cn: '原始版本', paid: '#f0679e',
+    colors: [[1.00,0.31,0.62],[1.00,0.55,0.25],[0.72,0.24,1.00]] },       // 粉 / 橙 / 紫红
+  { id: 'aurora',      en: 'AURORA',      cn: '极光',     paid: '#2fbf8f',
+    colors: [[0.08,0.88,0.58],[0.18,0.48,1.00],[0.55,0.25,0.95]] },       // 青绿 / 蓝 / 紫
+  { id: 'klein',       en: 'KLEIN',       cn: '克莱因',   paid: '#e08a3c',
+    colors: [[0.00,0.18,0.65],[0.13,0.25,0.85],[1.00,0.36,0.12]] },       // 克莱因蓝 / 橙
+  { id: 'ultraviolet', en: 'ULTRAVIOLET', cn: '超 VIOLET',paid: '#7a52d6',
+    colors: [[0.48,0.24,1.00],[0.72,0.83,0.24],[0.30,0.17,0.63]] },       // 紫 / 黄绿
+  { id: 'chrome',      en: 'CHROME',      cn: '铬',       paid: '#8a8a8a',
+    colors: [[0.13,0.13,0.13],[0.55,0.55,0.55],[0.82,0.82,0.82]] },       // 灰阶
+  { id: 'sunset',      en: 'SUNSET',      cn: '落日',     paid: '#e0a030',
+    colors: [[1.00,0.72,0.18],[1.00,0.34,0.28],[0.62,0.14,0.44]] },       // 金橙 / 绯红 / 梅紫
+];
+
+const VERT = `
+attribute vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+/* 域扭曲 FBM:颜色云雾像水彩在容器里缓慢扩散 */
+const FRAG = `
+precision highp float;
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uHover;
+uniform vec3  uC1;
+uniform vec3  uC2;
+uniform vec3  uC3;
+uniform float uSeed;
+
+float hash(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21) + uSeed);
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0));
+  float d = hash(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, amp = 0.55;
+  mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+  for (int i = 0; i < 5; i++) {
+    v += amp * noise(p);
+    p = rot * p * 2.0 + 3.7;
+    amp *= 0.5;
+  }
+  return v;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 p = uv * vec2(uRes.x / uRes.y, 1.0) * 1.6;
+  float t = uTime;
+
+  /* 域扭曲:两层噪声互相推动,颜色像在"呼吸" */
+  vec2 q = vec2(fbm(p + t * vec2(0.6, 0.2)),
+                fbm(p + t * vec2(-0.4, 0.5) + 5.2));
+  vec2 r = vec2(fbm(p + 2.2 * q + t * vec2(0.3, -0.4) + 1.7),
+                fbm(p + 2.2 * q + t * vec2(-0.2, 0.3) + 8.3));
+  float f = fbm(p + 2.4 * r);
+
+  /* 三色混合 */
+  vec3 col = mix(uC1, uC2, smoothstep(0.15, 0.62, f));
+  col = mix(col, uC3, smoothstep(0.60, 0.95, clamp(q.x * 1.3, 0.0, 1.0)));
+  col += 0.15 * r.y * uC2;              /* 高光泛色 */
+  /* 悬停时颜色变饱满,配合缓动形成明显但柔和的反馈 */
+  col = mix(col, col * col * 1.35 + col * 0.12, uHover * 0.55);
+
+  /* 白色叠加:左侧约四成留白给文字,颜色向右渐浓 */
+  float colorZone = smoothstep(0.30, 0.80, uv.x + 0.15 * (q.y - 0.5));
+  /* 顶部淡淡的白雾,还原视频中上缘发白 */
+  float whiteT = smoothstep(0.50, 1.05, uv.y) * 0.55;
+  float density = smoothstep(0.32, 0.85, f + 0.22 * r.x);  /* 云雾疏密,留出白隙 */
+  vec3 base = vec3(0.985);
+  float mask = colorZone * density;
+  mask = clamp(mask + colorZone * 0.15, 0.0, 1.0);
+  vec3 outCol = mix(base, col, mask);
+  outCol = mix(outCol, base, whiteT * (1.0 - mask * 0.55));
+
+  gl_FragColor = vec4(outCol, 1.0);
+}
+`;
+
+/* ---------- 构建 DOM ---------- */
+const grid = document.getElementById('grid');
+CARDS.forEach((c, i) => {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.dataset.id = c.id;
+  cell.innerHTML = `
+    <div class="cell-label">${c.en} <span class="cn">${c.cn}</span></div>
+    <div class="card">
+      <canvas></canvas>
+      <div class="card-content">
+        <div class="card-title">FLUX</div>
+        <div class="card-price">$128.00</div>
+        <div class="card-paid" style="color:${c.paid}">PAID</div>
+      </div>
+    </div>`;
+  grid.appendChild(cell);
+});
+
+/* ---------- WebGL 渲染 ---------- */
+function makeGL(canvas, palette, seed) {
+  const gl = canvas.getContext('webgl', { antialias: true });
+  if (!gl) return null;
+  function sh(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+      console.error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog); gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'aPos');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const U = n => gl.getUniformLocation(prog, n);
+  gl.uniform3fv(U('uC1'), palette[0]);
+  gl.uniform3fv(U('uC2'), palette[1]);
+  gl.uniform3fv(U('uC3'), palette[2]);
+  gl.uniform1f(U('uSeed'), seed);
+  return { gl, uRes: U('uRes'), uTime: U('uTime'), uHover: U('uHover') };
+}
+
+const renderers = [];
+document.querySelectorAll('.cell').forEach((cell, i) => {
+  const card = cell.querySelector('.card');
+  const canvas = cell.querySelector('canvas');
+  const ctx = makeGL(canvas, CARDS[i].colors, i * 13.7 + 1.0);
+  if (!ctx) return;
+  let hover = 0, hoverTarget = 0, flowTime = Math.random() * 100;
+  card.addEventListener('mouseenter', () => hoverTarget = 1);
+  card.addEventListener('mouseleave', () => hoverTarget = 0);
+  renderers.push({ cell, canvas, ctx,
+    tick(dt) {
+      /* 缓动系数 2.2 ≈ 0.6 秒渐入渐出,悬停有"缓冲"的过渡感 */
+      hover += (hoverTarget - hover) * Math.min(1, dt * 2.2);
+      /* smoothstep 缓动曲线:起步慢-中段快-收尾慢 */
+      const eased = hover * hover * (3 - 2 * hover);
+      /* 逐帧累积流动时间:基础速度 0.22,悬停加速到 0.50(仅加快烟雾运动,不变形) */
+      flowTime += dt * (0.22 + eased * 0.28);
+      return { hover: eased, flowTime };
+    } });
+});
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  renderers.forEach(r => {
+    const w = r.canvas.clientWidth * dpr, h = r.canvas.clientHeight * dpr;
+    if (r.canvas.width !== w || r.canvas.height !== h) {
+      r.canvas.width = w; r.canvas.height = h;
+      r.ctx.gl.viewport(0, 0, w, h);
+    }
+  });
+}
+window.addEventListener('resize', resize);
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  resize();
+  renderers.forEach(r => {
+    if (r.cell.classList.contains('hidden')) return;
+    const { gl, uRes, uTime, uHover } = r.ctx;
+    const { hover, flowTime } = r.tick(dt);
+    gl.uniform2f(uRes, r.canvas.width, r.canvas.height);
+    gl.uniform1f(uTime, flowTime);
+    gl.uniform1f(uHover, hover);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- 筛选 ---------- */
+const counter = document.getElementById('counter');
+document.getElementById('filters').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+  const f = btn.dataset.filter;
+  let shown = 0;
+  document.querySelectorAll('.cell').forEach(cell => {
+    const show = f === 'all' || cell.dataset.id === f;
+    cell.classList.toggle('hidden', !show);
+    if (show) shown++;
+  });
+  counter.textContent = String(shown).padStart(2, '0') + ' / ' + String(CARDS.length).padStart(2, '0');
+});
+</script>
+</body>
+</html>
