@@ -114,16 +114,33 @@
   .card {
     position: relative;
     height: 108px;
-    border-radius: 60px 60px 60px 60px / 54px 54px 54px 54px;
+    border-radius: 999px;                              /* 完全药丸形 */
     background: #fff;
     overflow: hidden;
-    box-shadow: 0 18px 30px -14px rgba(0,0,0,.28), 0 4px 10px rgba(0,0,0,.05);
+    border: 1px solid rgba(255,255,255,.75);           /* 亮边勾勒轮廓 */
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,.95),           /* 顶部内圈光 */
+      inset 0 -12px 20px rgba(0,0,0,.07),              /* 底部内阴影,产生体积感 */
+      0 22px 36px -16px rgba(0,0,0,.32),               /* 悬浮投影 */
+      0 3px 8px rgba(0,0,0,.06);
     cursor: pointer;
     transition: transform .35s cubic-bezier(.22,.9,.3,1.2), box-shadow .35s ease;
   }
   .card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 26px 40px -16px rgba(0,0,0,.34), 0 6px 14px rgba(0,0,0,.06);
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,.95),
+      inset 0 -12px 20px rgba(0,0,0,.07),
+      0 30px 46px -18px rgba(0,0,0,.38),
+      0 5px 12px rgba(0,0,0,.07);
+  }
+  /* 顶部玻璃高光带:像 iOS 药丸/按钮的镜面反光 */
+  .card::after {
+    content: ""; position: absolute; z-index: 2;
+    left: 3%; right: 3%; top: 5%; height: 44%;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.10) 70%, transparent);
+    pointer-events: none;
   }
   .card canvas {
     position: absolute; inset: 0;
@@ -358,17 +375,29 @@ document.querySelectorAll('.cell').forEach((cell, i) => {
   const ctx = makeGL(canvas, CARDS[i].colors, i * 13.7 + 1.0);
   if (!ctx) return;
   let hover = 0, hoverTarget = 0, flowTime = Math.random() * 100;
+  /* 鼠标移动产生"搅动能量":移动越快能量越高 → 流速越快,停下后平滑衰减 */
+  let stir = 0, lastX = null, lastY = null;
   card.addEventListener('mouseenter', () => hoverTarget = 1);
-  card.addEventListener('mouseleave', () => hoverTarget = 0);
+  card.addEventListener('mouseleave', () => { hoverTarget = 0; lastX = lastY = null; });
+  card.addEventListener('mousemove', e => {
+    if (lastX !== null) {
+      const move = Math.hypot(e.clientX - lastX, e.clientY - lastY);
+      stir = Math.min(1, stir + move * 0.012);   /* 移动距离转能量,封顶 1 */
+    }
+    lastX = e.clientX; lastY = e.clientY;
+  });
   renderers.push({ cell, canvas, ctx,
     tick(dt) {
       /* 缓动系数 2.2 ≈ 0.6 秒渐入渐出,悬停有"缓冲"的过渡感 */
       hover += (hoverTarget - hover) * Math.min(1, dt * 2.2);
       /* smoothstep 缓动曲线:起步慢-中段快-收尾慢 */
       const eased = hover * hover * (3 - 2 * hover);
-      /* 逐帧累积流动时间:基础速度 0.22,悬停加速到 0.50(仅加快烟雾运动,不变形) */
-      flowTime += dt * (0.22 + eased * 0.28);
-      return { hover: eased, flowTime };
+      /* 搅动能量指数衰减(约 1 秒半衰),鼠标停下后流速平滑回落 */
+      stir *= Math.exp(-dt * 1.6);
+      /* 逐帧累积流动时间:静止 0.22,悬停微加速,鼠标移动时最高约 0.85 */
+      const speed = 0.22 + eased * 0.08 + stir * 0.55;
+      flowTime += dt * speed;
+      return { hover: eased, flowTime, speed };
     } });
 });
 
@@ -391,7 +420,8 @@ function frame(now) {
   renderers.forEach(r => {
     if (r.cell.classList.contains('hidden')) return;
     const { gl, uRes, uTime, uHover } = r.ctx;
-    const { hover, flowTime } = r.tick(dt);
+    const { hover, flowTime, speed } = r.tick(dt);
+    r.speed = speed;   /* 暴露当前流速,便于调试 */
     gl.uniform2f(uRes, r.canvas.width, r.canvas.height);
     gl.uniform1f(uTime, flowTime);
     gl.uniform1f(uHover, hover);
